@@ -1,1 +1,1 @@
-# histopathologic-cancer-detection
+# Kaggle competition Histopathologic Cancer Detection
