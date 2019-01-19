@@ -1,0 +1,13 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.tar
+*.log
+# C extensions
+*.so
+*/.ipynb_checkpoints/
+*.csv
+.DS_Store
+
+.vscode/

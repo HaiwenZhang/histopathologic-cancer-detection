@@ -1,7 +1,7 @@
 from torch.autograd import Variable
 import torch
 
-from loss import f1_loss, acc
+from loss import acc
 
 
 def evaluate(model, dataloader, loss_fn, params):

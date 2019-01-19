@@ -3,7 +3,7 @@ import torch
 from torch.autograd import Variable
 from fastprogress import master_bar, progress_bar
 
-from loss import f1_loss, acc
+from loss import acc
 from evaluate import evaluate
 import utils
 
@@ -14,8 +14,6 @@ def train_model(model, dataloader, loss_fn, optimizer, scheduler, params):
     model.train()
 
     total = len(dataloader)
-
-
 
     train_loss = 0.0
     train_acc = 0.0
@@ -36,11 +34,13 @@ def train_model(model, dataloader, loss_fn, optimizer, scheduler, params):
                 train_batch), Variable(labels_batch)
 
             output_batch = model(train_batch)
+
+            labels_batch = labels_batch.float()
             loss = loss_fn(output_batch, labels_batch)
 
             # clear previous gradients, compute gradients of all variables wrt loss
             optimizer.zero_grad()
-            loss.backward()
+            #loss.backward()
 
             # performs updates using calculated gradients
             optimizer.step()
@@ -48,7 +48,7 @@ def train_model(model, dataloader, loss_fn, optimizer, scheduler, params):
             # adjust learnign rate
             scheduler.step()
 
-            running_loss += loss.item()
+            running_loss += 0 #loss.item()
             # temp_f1_loss = f1_loss(output_batch, labels_batch)
             # running_f1_loss += temp_f1_loss
             temp_acc_rate = acc(output_batch, labels_batch)

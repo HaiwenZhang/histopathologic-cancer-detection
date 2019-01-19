@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 from torch.utils.data.sampler import SubsetRandomSampler
-from .dataset import MultiBandMultiLabelDataset
+from .dataset import HCDDataset
 
 
 def get_dateloaders(params,
@@ -39,9 +39,9 @@ def get_dateloaders(params,
     shuffle = params.shuffle
     num_workers = params.num_workers
 
-    train_dataset = MultiBandMultiLabelDataset(
+    train_dataset = HCDDataset(
         csv_file=csv_file, root_dir=data_dir, transform=train_transform)
-    valid_dataset = MultiBandMultiLabelDataset(
+    valid_dataset = HCDDataset(
         csv_file=csv_file, root_dir=data_dir, transform=valid_transform)
 
     dataset_size = len(train_dataset)

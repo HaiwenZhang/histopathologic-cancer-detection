@@ -3,7 +3,6 @@
     "batch_size": 64,
     "num_epochs": 10,
     "num_workers": 10,
-    "num_labels": 28,
     "valid_size": 0.1,
     "random_seed": 230,
     "step_size": 5,
