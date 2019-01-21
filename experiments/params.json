@@ -1,0 +1,10 @@
+{
+    "learning_rate": 1e-3,
+    "batch_size": 128,
+    "num_epochs": 10,
+    "num_workers": 6,
+    "valid_size": 0.1,
+    "random_seed": 230,
+    "step_size": 3,
+    "gama": 0.1
+}

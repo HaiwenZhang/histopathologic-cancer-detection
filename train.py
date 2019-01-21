@@ -1,108 +1,73 @@
-import logging
-import torch
-from torch.autograd import Variable
-from fastprogress import master_bar, progress_bar
+from torchvision import models
+from torch import nn
 
-from loss import acc
-from evaluate import evaluate
-import utils
+from tensorboardX import SummaryWriter
+
+from lightai.train import *
+import cv2
+from torch.utils.data import DataLoader
+from src.model import Model
+import shutil
+import torch.multiprocessing as mp
+from torch.utils.data.dataloader import default_collate
+from torch.utils.data.sampler import WeightedRandomSampler
+torch.backends.cudnn.benchmark = True
 
 
-def train_model(model, dataloader, loss_fn, optimizer, scheduler, params):
+def main(params):
+    print(params)
+    sz = 512
 
-    # convert model to train, avoid model state is eval
-    model.train()
 
-    total = len(dataloader)
-
-    train_loss = 0.0
-    train_acc = 0.0
-
-    for j in progress_bar(range(total), parent=params.mb):
-        running_loss = 0.0
-        # running_f1_loss = 0.0
-        acc_rate = 0.0
-        
-        for i, (train_batch, labels_batch) in enumerate(dataloader):
-            # move to GPU if available
-            if params.cuda:
-                train_batch, labels_batch = train_batch.cuda(
-                    async=True), labels_batch.cuda(async=True)
-
-            # convert to torch Variables
-            train_batch, labels_batch = Variable(
-                train_batch), Variable(labels_batch)
-
-            output_batch = model(train_batch)
-
-            labels_batch = labels_batch.float()
-            loss = loss_fn(output_batch, labels_batch)
-
-            # clear previous gradients, compute gradients of all variables wrt loss
-            optimizer.zero_grad()
-            #loss.backward()
-
-            # performs updates using calculated gradients
-            optimizer.step()
-
-            # adjust learnign rate
-            scheduler.step()
-
-            running_loss += 0 #loss.item()
-            # temp_f1_loss = f1_loss(output_batch, labels_batch)
-            # running_f1_loss += temp_f1_loss
-            temp_acc_rate = acc(output_batch, labels_batch)
-            acc_rate += temp_acc_rate
-
-            params.mb.child.comment = "loss {} and acc {}".format(loss.item(), temp_acc_rate)
-        
-        train_loss = running_loss / total
-        train_acc = acc_rate / total
+    df = pd.read_csv('../data/full.csv')
+    wd = 4e-4
+    sgd = partial(optim.SGD, lr=0, momentum=0.9, weight_decay=wd)
 
 
 
-    return train_loss, train_acc
+    writer = SummaryWriter(f'./log/{name}')
 
 
-def train_and_evaluate(model, dataloaders, optimizer, loss_fn, scheduler, params):
+    model = Model(base=models.resnet34).cuda()
 
-    metrics = utils.RunningMetrics()
+    loss_fn = nn.BCELoss()
+    metric = None
+    learner = Learner(model=model, trn_dl=trn_dl, val_dl=val_dl, optim_fn=sgd,
+                          metrics=[metric], loss_fn=loss_fn,
+                          callbacks=[], writer=writer)
+    to_fp16(learner, 512)
+    learner.callbacks.append(SaveBestModel(learner, small_better=False, name='best.pkl',
+                                               model_dir=params.model_dir))
 
-    best_val_acc = 0.0
+    epoches = 10
+    warmup_batches = 2 * len(trn_dl)
+    lr1 = np.linspace( cfg['base_lr'] / 25,  cfg['base_lr'], num=warmup_batches, endpoint=False)
+    lr2 = np.linspace( cfg['base_lr'],  cfg['base_lr'] / 25, num=epoches * len(trn_dl) - warmup_batches)
+    lrs = np.concatenate((lr1, lr2))
 
-    mb = master_bar(range(params.num_epochs))
+    # epoches = 10
+    # max_lr = 5e-2
+    # warmup_batches = 2 * len(trn_dl)
+    # lr1 = np.linspace(max_lr / 25, max_lr, num=warmup_batches, endpoint=False)
+    # lr2 = np.linspace(max_lr, max_lr / cfg['rate'], num=epoches * len(trn_dl) - warmup_batches)
+    # lrs = np.concatenate((lr1, lr2))
+    lr_sched = LrScheduler(learner.optimizer, lrs)
+    learner.fit(epoches, lr_sched)
 
-    params.mb = mb
 
-    for epoch in mb:
-        logging.info("Epoch {}/{}".format(epoch + 1, params.num_epochs))
+if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser(description='Process some integers.')
+    parser.add_argument('--data_dir', type=str, required=True)
+    parser.add_argument('--model_dir', type=str, required=True)
 
-        train_loss, train_acc = train_model(
-            model, dataloaders["train"], loss_fn, optimizer, scheduler, params)
-        val_loss, val_acc = evaluate(
-            model, dataloaders["val"], loss_fn, params)
+    args = parser.parse_args()
 
-        list = []
-        list.append(train_loss)
-        list.append(train_acc)
-        list.append(val_loss)
-        list.append(val_acc)
-        metrics.update(list)
+    cfg = {}
+    cfg['folds'] = [int(fold) for fold in args.fold]
+    cfg['bs'] = 96
+    cfg['model_name'] = 'res18_shisu'
+    cfg['base_lr'] = 5e-2
+    num_workers = 6
+    main(cfg)
 
-        logging.info("Epoch {}/{}. Train loss: {}, Train acc: {}. Val loss: {}, Val acc: {}".format(
-            epoch + 1, params.num_epochs, train_loss, train_acc, val_loss, val_acc))
-
-        is_best = val_acc >= best_val_acc
-
-        utils.save_checkpoint({'epoch': epoch + 1,
-                               'state_dict': model.state_dict(),
-                               'optim_dict': optimizer.state_dict()},
-                              is_best=is_best,
-                              checkpoint=params.model_dir)
-
-        if is_best:
-            logging.info("- Found new best val acc")
-
-            best_val_acc = val_acc
-
-    metrics.save_to_csv(params.model_metrics_file)
