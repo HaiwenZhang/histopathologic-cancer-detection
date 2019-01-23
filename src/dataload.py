@@ -1,6 +1,8 @@
+
 import numpy as np
 import torch
-from torch.utils.data.sampler import SubsetRandomSampler
+from torch.utils.data.sampler import BatchSampler, SubsetRandomSampler
+from torch.utils.data import DataLoader
 from .dataset import HCDDataset
 
 
@@ -54,15 +56,12 @@ def get_dateloaders(params,
     train_idx, valid_idx = indices[split:], indices[:split]
 
     # Creating PT data samplers and loaders:
+    # train_sampler = BatchSampler(SubsetRandomSampler(train_idx), batch_size=batch_size,  drop_last=True)
+    # valid_sampler = BatchSampler(SubsetRandomSampler(valid_idx), batch_size=batch_size,  drop_last=True)
+
     train_sampler = SubsetRandomSampler(train_idx)
     valid_sampler = SubsetRandomSampler(valid_idx)
+    train_dl = DataLoader(train_dataset, batch_size=batch_size, sampler=train_sampler, num_workers=num_workers, pin_memory=True)
+    valid_dl = DataLoader(valid_dataset, batch_size=batch_size, sampler=valid_sampler, num_workers=num_workers, pin_memory=True)
 
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size,
-                                               sampler=train_sampler, num_workers=num_workers)
-    valid_loader = torch.utils.data.DataLoader(valid_dataset, batch_size=batch_size,
-                                               sampler=valid_sampler, num_workers=num_workers)
-    dataloaders = {
-        'train': train_loader,
-        'val': valid_loader
-    }
-    return dataloaders
+    return train_dl, valid_dl

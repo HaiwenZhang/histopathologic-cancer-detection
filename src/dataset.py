@@ -19,10 +19,11 @@ class HCDDataset(Dataset):
         return len(self.csv_pd)
 
     def __getitem__(self, index):
-        path = os.path.join(self.root_dir, self.csv_pd.iloc[index].id+".tif")
+        path = os.path.join(self.root_dir, self.csv_pd.iloc[index].Id+".tif")
         x = PIL.Image.open(path)
         if self.transform is not None:
             x = self.transform(x)
-        y = self.csv_pd.iloc[index].label
+        y = self.csv_pd.iloc[index].Label
+        y = y.astype(np.float32)
         return x, y
     

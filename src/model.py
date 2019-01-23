@@ -80,19 +80,18 @@ class Model(nn.Module):
 
     def forward(self, x):
         x = x.half()
-        x = x.permute(0, 3, 1, 2)
-        x = (x-mean)/std
-        # x = self.inp_bn(x)
+        # x = x.permute(0, 3, 1, 2)
+        # x = (x-mean)/std
+         # x = self.inp_bn(x)
         x = self.base(x)
         x = self.head(x)
-        x = self.sigmoid(x)
         return x
 
     def get_base(self, base, pretrained):
         resnet = base(pretrained=pretrained)
-        conv1 = nn.Conv2d(4, 64, kernel_size=(
-            7, 7), stride=(2, 2), padding=(3, 3), bias=False)
-        conv1.weight.data[:, :-1] = resnet.conv1.weight.data
-        conv1.weight.data[:, -1] = resnet.conv1.weight.data.mean(dim=1)
-        resnet.conv1 = conv1
+        #conv1 = nn.Conv2d(4, 64, kernel_size=(
+        #    7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+        #conv1.weight.data[:, :-1] = resnet.conv1.weight.data
+        #conv1.weight.data[:, -1] = resnet.conv1.weight.data.mean(dim=1)
+        #resnet.conv1 = conv1
         return nn.Sequential(*list(resnet.children())[:-2])

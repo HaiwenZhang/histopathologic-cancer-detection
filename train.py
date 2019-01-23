@@ -6,43 +6,57 @@ from tensorboardX import SummaryWriter
 from lightai.train import *
 import cv2
 from torch.utils.data import DataLoader
-from src.model import Model
+
 import shutil
 import torch.multiprocessing as mp
 from torch.utils.data.dataloader import default_collate
 from torch.utils.data.sampler import WeightedRandomSampler
+
+from torchvision import transforms
+from src.model import Model
+from src.dataload import get_dateloaders
+from src.metric import BCA
+from src.utlis import Params
+
 torch.backends.cudnn.benchmark = True
 
-
 def main(params):
-    print(params)
-    sz = 512
-
-
-    df = pd.read_csv('../data/full.csv')
     wd = 4e-4
+    normalize = transforms.Normalize(mean=[0.70017236, 0.5436771, 0.6961061], std=[0.22246036, 0.26757348, 0.19798167])  
+    train_transform = transforms.Compose([
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomVerticalFlip(),
+        transforms.Resize(224),
+        transforms.ToTensor(),
+        normalize
+    ])
+
+    valid_transform = transforms.Compose([
+        transforms.Resize(224),
+        transforms.ToTensor(),
+        normalize
+    ])
+
     sgd = partial(optim.SGD, lr=0, momentum=0.9, weight_decay=wd)
 
-
-
-    writer = SummaryWriter(f'./log/{name}')
-
-
+    writer = SummaryWriter(params.model_dir + "/log")
     model = Model(base=models.resnet34).cuda()
 
-    loss_fn = nn.BCELoss()
-    metric = None
+    trn_dl, val_dl = get_dateloaders(params, train_transform, valid_transform)
+
+    loss_fn = nn.BCEWithLogitsLoss()
+    metric = BCA()
     learner = Learner(model=model, trn_dl=trn_dl, val_dl=val_dl, optim_fn=sgd,
                           metrics=[metric], loss_fn=loss_fn,
                           callbacks=[], writer=writer)
     to_fp16(learner, 512)
-    learner.callbacks.append(SaveBestModel(learner, small_better=False, name='best.pkl',
+    learner.callbacks.append(SaveBestModel(learner, small_better=False, name='best.pth',
                                                model_dir=params.model_dir))
 
-    epoches = 10
+    epoches = params.num_epoches
     warmup_batches = 2 * len(trn_dl)
-    lr1 = np.linspace( cfg['base_lr'] / 25,  cfg['base_lr'], num=warmup_batches, endpoint=False)
-    lr2 = np.linspace( cfg['base_lr'],  cfg['base_lr'] / 25, num=epoches * len(trn_dl) - warmup_batches)
+    lr1 = np.linspace( params.base_lr / 25,  params.base_lr, num=warmup_batches, endpoint=False)
+    lr2 = np.linspace( params.base_lr,  params.base_lr / 25, num=epoches * len(trn_dl) - warmup_batches)
     lrs = np.concatenate((lr1, lr2))
 
     # epoches = 10
@@ -60,14 +74,29 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Process some integers.')
     parser.add_argument('--data_dir', type=str, required=True)
     parser.add_argument('--model_dir', type=str, required=True)
-
     args = parser.parse_args()
 
-    cfg = {}
-    cfg['folds'] = [int(fold) for fold in args.fold]
-    cfg['bs'] = 96
-    cfg['model_name'] = 'res18_shisu'
-    cfg['base_lr'] = 5e-2
-    num_workers = 6
-    main(cfg)
+    json_path = os.path.join(args.model_dir, "params.json")
+    assert os.path.isfile(
+        json_path), "No json configuration file found at {}".format(json_path)
+    params = Params(json_path)
+
+    # use GPU if available
+    params.cuda = torch.cuda.is_available()
+
+    # Set the random seed for reproducible experiments
+    torch.manual_seed(230)
+    if params.cuda:
+        torch.cuda.manual_seed(230)
+
+    params.csv_file = os.path.join(args.data_dir, 'train_labels.csv')
+    params.data_dir = os.path.join(args.data_dir, 'train')
+
+    params.shuffle_dataset = True
+    params.shuffle = True
+    params.feature_extract = True
+    params.use_pretrained = True
+    params.model_dir = args.model_dir
+
+    main(params)
 
