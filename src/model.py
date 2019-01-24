@@ -89,9 +89,12 @@ class Model(nn.Module):
 
     def get_base(self, base, pretrained):
         resnet = base(pretrained=pretrained)
+
         #conv1 = nn.Conv2d(4, 64, kernel_size=(
         #    7, 7), stride=(2, 2), padding=(3, 3), bias=False)
         #conv1.weight.data[:, :-1] = resnet.conv1.weight.data
         #conv1.weight.data[:, -1] = resnet.conv1.weight.data.mean(dim=1)
         #resnet.conv1 = conv1
+        for p in resnet.parameters():
+            p.requires_grad = False
         return nn.Sequential(*list(resnet.children())[:-2])

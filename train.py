@@ -22,7 +22,7 @@ torch.backends.cudnn.benchmark = True
 
 def main(params):
     wd = 4e-4
-    normalize = transforms.Normalize(mean=[0.70017236, 0.5436771, 0.6961061], std=[0.22246036, 0.26757348, 0.19798167])  
+    normalize = transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])  
     train_transform = transforms.Compose([
         transforms.RandomHorizontalFlip(),
         transforms.RandomVerticalFlip(),
