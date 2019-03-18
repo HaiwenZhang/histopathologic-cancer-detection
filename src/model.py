@@ -75,7 +75,7 @@ class Model(nn.Module):
         super().__init__()
         # self.inp_bn = nn.BatchNorm2d(4)
         self.base = self.get_base(base, pretrained)
-        self.head = create_head(1024, 1, ps=[0])
+        self.head = create_head(4096, 1, ps=[0])
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
@@ -95,6 +95,6 @@ class Model(nn.Module):
         #conv1.weight.data[:, :-1] = resnet.conv1.weight.data
         #conv1.weight.data[:, -1] = resnet.conv1.weight.data.mean(dim=1)
         #resnet.conv1 = conv1
-        for p in resnet.parameters():
-            p.requires_grad = False
+        # for p in resnet.parameters():
+        #     p.requires_grad = False
         return nn.Sequential(*list(resnet.children())[:-2])

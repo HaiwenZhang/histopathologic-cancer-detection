@@ -26,18 +26,18 @@ def main(params):
     train_transform = transforms.Compose([
         transforms.RandomHorizontalFlip(),
         transforms.RandomVerticalFlip(),
-        transforms.Resize(224),
+        transforms.Resize(80),
         transforms.ToTensor(),
         normalize
     ])
 
     valid_transform = transforms.Compose([
-        transforms.Resize(224),
+        transforms.Resize(80),
         transforms.ToTensor(),
         normalize
     ])
 
-    sgd = partial(optim.SGD, lr=0, momentum=0.9, weight_decay=wd)
+    sgd = partial(optim.SGD, lr=params.base_lr, momentum=0.9, weight_decay=wd)
 
     writer = SummaryWriter(params.model_dir + "/log")
     model = Model(base=models.resnet34).cuda()

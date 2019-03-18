@@ -6,7 +6,7 @@ import torch
 from torchvision import transforms, models
 from src.model import Model
 
-data_dir = '/home/haiwen/kaggle/histopathologic-cancer-detection'
+data_dir = '/home/haiwen/kaggle/data/histopathologic-cancer-detection'
 model_dir = './experiments'
 dataset = pd.read_csv(os.path.join(data_dir, "sample_submission.csv"))
 
@@ -16,7 +16,7 @@ test_transform = transforms.Compose([
     transforms.ToTensor(),
     normalize])
 
-model = Model(base=models.resnet34)
+model = Model(base=models.resnet50)
 model.half()
 target = []
 with torch.no_grad():
