@@ -1,4 +1,8 @@
 import json
+import random
+import os
+import torch
+import numpy as np
 
 class Params():
     """Class that loads hyperparameters from a json file.n
@@ -30,3 +34,12 @@ class Params():
         """Gives dict-like access to Params instance
         by `params.dict['learning_rate']"""
         return self.__dict__
+
+
+def seed_everything(seed=208):
+    random.seed(seed)
+    os.environ['PYHTONHASHSEED'] = str(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True

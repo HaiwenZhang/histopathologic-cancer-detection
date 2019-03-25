@@ -16,33 +16,42 @@ from torchvision import transforms
 from src.model import Model
 from src.dataload import get_dateloaders
 from src.metric import BCA
-from src.utlis import Params
+import albumentations
+from albumentations import torch as AT
+from src.utlis import Params, seed_everything
 
 torch.backends.cudnn.benchmark = True
 
 def main(params):
     wd = 4e-4
-    normalize = transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])  
-    train_transform = transforms.Compose([
-        transforms.RandomHorizontalFlip(),
-        transforms.RandomVerticalFlip(),
-        transforms.Resize(80),
-        transforms.ToTensor(),
-        normalize
+
+    train_transforms = albumentations.Compose([
+        #albumentations.CenterCrop(64, 64),
+        albumentations.RandomRotate90(p=0.5),
+        albumentations.Transpose(p=0.5),
+        albumentations.Flip(p=0.5),
+        albumentations.OneOf([
+            albumentations.CLAHE(clip_limit=2), albumentations.IAASharpen(), albumentations.IAAEmboss(), 
+            albumentations.RandomBrightness(), albumentations.RandomContrast(),
+            albumentations.JpegCompression(), albumentations.Blur(), albumentations.GaussNoise()], p=0.5), 
+        albumentations.HueSaturationValue(p=0.5), 
+        albumentations.ShiftScaleRotate(shift_limit=0.15, scale_limit=0.15, rotate_limit=45, p=0.5),
+        albumentations.Normalize(),
+        AT.ToTensor()
     ])
 
-    valid_transform = transforms.Compose([
-        transforms.Resize(80),
-        transforms.ToTensor(),
-        normalize
+    valid_transforms = albumentations.Compose([
+        #albumentations.CenterCrop(64, 64),
+        albumentations.Normalize(),
+        AT.ToTensor()
     ])
 
-    sgd = partial(optim.SGD, lr=params.base_lr, momentum=0.9, weight_decay=wd)
+    sgd = partial(optim.Adam, lr=params.base_lr, momentum=0.9, weight_decay=wd)
 
     writer = SummaryWriter(params.model_dir + "/log")
-    model = Model(base=models.resnet34).cuda()
+    model = Model().cuda()
 
-    trn_dl, val_dl = get_dateloaders(params, train_transform, valid_transform)
+    trn_dl, val_dl = get_dateloaders(params.data_dir, train_transforms, valid_transforms)
 
     loss_fn = nn.BCEWithLogitsLoss()
     metric = BCA()
@@ -59,12 +68,6 @@ def main(params):
     lr2 = np.linspace( params.base_lr,  params.base_lr / 25, num=epoches * len(trn_dl) - warmup_batches)
     lrs = np.concatenate((lr1, lr2))
 
-    # epoches = 10
-    # max_lr = 5e-2
-    # warmup_batches = 2 * len(trn_dl)
-    # lr1 = np.linspace(max_lr / 25, max_lr, num=warmup_batches, endpoint=False)
-    # lr2 = np.linspace(max_lr, max_lr / cfg['rate'], num=epoches * len(trn_dl) - warmup_batches)
-    # lrs = np.concatenate((lr1, lr2))
     lr_sched = LrScheduler(learner.optimizer, lrs)
     learner.fit(epoches, lr_sched)
 
@@ -83,19 +86,11 @@ if __name__ == '__main__':
 
     # use GPU if available
     params.cuda = torch.cuda.is_available()
-
+    
     # Set the random seed for reproducible experiments
-    torch.manual_seed(230)
-    if params.cuda:
-        torch.cuda.manual_seed(230)
+    seed_everything(230)
 
-    params.csv_file = os.path.join(args.data_dir, 'train_labels.csv')
-    params.data_dir = os.path.join(args.data_dir, 'train')
-
-    params.shuffle_dataset = True
-    params.shuffle = True
-    params.feature_extract = True
-    params.use_pretrained = True
+    params.data_dir = args.data_dir
     params.model_dir = args.model_dir
 
     main(params)
