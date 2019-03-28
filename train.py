@@ -14,7 +14,7 @@ from torch.utils.data.sampler import WeightedRandomSampler
 
 from torchvision import transforms
 from src.model import Model
-from src.dataload import get_dateloaders
+from src.dataload import get_train_and_valid_dataload
 from src.metric import BCA
 import albumentations
 from albumentations import torch as AT
@@ -46,19 +46,19 @@ def main(params):
         AT.ToTensor()
     ])
 
-    sgd = partial(optim.Adam, lr=params.base_lr, momentum=0.9, weight_decay=wd)
+    sgd = partial(optim.Adam, lr=params.base_lr)
 
     writer = SummaryWriter(params.model_dir + "/log")
     model = Model().cuda()
 
-    trn_dl, val_dl = get_dateloaders(params.data_dir, train_transforms, valid_transforms)
+    trn_dl, val_dl = get_train_and_valid_dataload(params.data_dir, train_transforms, valid_transforms)
 
     loss_fn = nn.BCEWithLogitsLoss()
     metric = BCA()
     learner = Learner(model=model, trn_dl=trn_dl, val_dl=val_dl, optim_fn=sgd,
                           metrics=[metric], loss_fn=loss_fn,
                           callbacks=[], writer=writer)
-    to_fp16(learner, 512)
+    #to_fp16(learner, 512)
     learner.callbacks.append(SaveBestModel(learner, small_better=False, name='best.pth',
                                                model_dir=params.model_dir))
 

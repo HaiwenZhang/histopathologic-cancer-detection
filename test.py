@@ -1,60 +1,37 @@
 import os
-import PIL
-import numpy as np
-import pandas as pd
 import torch
-from torchvision import transforms, models
+import pandas as pd
+import numpy as np
+import scipy
+import albumentations
+from albumentations import torch as AT
+
 from src.model import Model
+from src.dataset import CancerDataset
 
-data_dir = '/home/haiwen/kaggle/data/histopathologic-cancer-detection'
-model_dir = './experiments'
-dataset = pd.read_csv(os.path.join(data_dir, "sample_submission.csv"))
 
-normalize = transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])  
-test_transform = transforms.Compose([
-    transforms.Resize(224),
-    transforms.ToTensor(),
-    normalize])
+def main(model_dir, data_dir):
 
-model = Model(base=models.resnet50)
-model.half()
-target = []
-with torch.no_grad():
-    checkpoint = torch.load(model_dir + "/best.pth")
+
+    best_train_result_path = os.path.join(model_dir, "best03.pth")
+
+    checkpoint = torch.load(best_train_result_path)
+        
+    model = Model().cuda()
     model.load_state_dict(checkpoint["model"])
-    model.cuda()
-    model.eval()
-    for index, row in dataset.iterrows():
-        name = row['id']
 
-        path = os.path.join(data_dir, "test" , name+".tif")
-        x = PIL.Image.open(path)
-        x = test_transform(x)
-        x = x.unsqueeze(0)
+    input = torch.randn(1, 3, 96, 96, device='cuda')
 
-        pred = model(x.cuda()).sigmoid().cpu().numpy()
-        if pred > 0.5:
-            pred = 1
-        else:
-            pred = 0
-        target.append(pred)
-#target = []
-#for sample_pred in result:
-#    pred = []
-#    for i,score in enumerate(sample_pred):
-#        temp = 0
-#        if score > 0.5:
-#            temp = 1
-#        pred.append(temp)
+    torch.onnx.export(model, input, './model.onnx')
+  
 
-#    target.append(pred)
-            #if score > cfg['thres'][i]:
-            #    pred.append(str(i))
-        #if len(pred) == 0:
-            #pred.append(str(sample_pred.argmax()))
-        #target.append(' '.join(pred))
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description='Process some integers.')
+    parser.add_argument('--data_dir', type=str, required=True)
+    parser.add_argument('--model_dir', type=str, required=True)
+    args = parser.parse_args()
+    data_dir = args.data_dir
+    model_dir = args.model_dir
 
-#print(len(dataset))
-#print(len(target[0]))
-dataset['label'] = target
-dataset.to_csv('submit.csv',index=False)
+    main(model_dir, data_dir)

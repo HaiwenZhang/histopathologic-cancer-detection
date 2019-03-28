@@ -45,7 +45,7 @@ class Learner:
                 
                 for x, target in progress_bar(self.trn_dl, parent=mb):
                     x, target = x.cuda(non_blocking=True), target.cuda(
-                        non_blocking=True)
+                        non_blocking=True).float()
                     target = target.view(x.size(0), 1)
                     for cb in callbacks:
                         cb.on_batch_begin(x=x, target=target)
@@ -89,7 +89,7 @@ class Learner:
         with torch.no_grad():
             for x, target in self.val_dl:
                 x, target = x.cuda(non_blocking=True), target.cuda(
-                    non_blocking=True)
+                    non_blocking=True).float()
                 target = target.view(x.size(0), 1)
                 predict = self.model(x)
                 predict = predict.float()
